@@ -62,7 +62,7 @@ namespace CarDealership
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlServer("Server=.;Database=CarDealership;Trusted_Connection=True;");
+            optionsBuilder.UseSqlServer("Server=COCO;Database=CarDealership;Trusted_Connection=True;");
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
