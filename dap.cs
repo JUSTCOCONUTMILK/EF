@@ -16,7 +16,7 @@ namespace DapperExample
 
     public class CarRepository
     {
-        private string connectionString = "Server=localhost; Database=YourDatabaseName; Integrated Security=True;";
+        private string connectionString = "Server=localhost; Database=COCO; Integrated Security=True;";
 
         public void AddCar(Car car)
         {
