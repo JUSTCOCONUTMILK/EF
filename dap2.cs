@@ -30,7 +30,7 @@ class Program
         var configuration = new ConfigurationBuilder()
             .AddJsonFile("appsettings.json")
             .Build();
-        string connectionString = configuration.GetConnectionString("DefaultConnection");
+        string connectionString = configuration.GetConnectionString("Default");
 
         using (var connection = new SqlConnection(connectionString))
         {
