@@ -49,7 +49,7 @@ namespace CarDealerApp
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            optionsBuilder.UseSqlServer("Server=.;Database=CarDealerDb;Trusted_Connection=True;")
+            optionsBuilder.UseSqlServer("Server=COCO;Database=CarDealerDb;Trusted_Connection=True;")
                           .LogTo(Console.WriteLine);
         }
 
