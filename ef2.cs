@@ -1,19 +1,63 @@
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 
-namespace CarDealerApp
+namespace EFCoreCarDealership
 {
+    public class CarDealershipContext : DbContext
+    {
+        public DbSet<Car> Cars { get; set; }
+        public DbSet<Dealer> Dealers { get; set; }
+        public DbSet<Customer> Customers { get; set; }
+        public DbSet<Order> Orders { get; set; }
+
+        public CarDealershipContext(DbContextOptions<CarDealershipContext> options) : base(options) { }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<CarOrder>()
+                .HasKey(co => new { co.CarId, co.CustomerId });
+            modelBuilder.Entity<CarOrder>()
+                .HasOne(co => co.Car)
+                .WithMany(c => c.CarOrders)
+                .HasForeignKey(co => co.CarId);
+
+            modelBuilder.Entity<CarOrder>()
+                .HasOne(co => co.Customer)
+                .WithMany(c => c.CarOrders)
+                .HasForeignKey(co => co.CustomerId);
+
+            modelBuilder.Entity<Car>()
+                .HasIndex(c => new { c.Make, c.Model })
+                .IsUnique();
+        }
+    }
+
     public class Car
     {
         public int Id { get; set; }
+
+        [Required]
+        [StringLength(100)]
         public string Make { get; set; }
+
+        [Required]
+        [StringLength(100)]
         public string Model { get; set; }
+
+        [Range(1900, 2100)]
         public int Year { get; set; }
+
         public int DealerId { get; set; }
         public Dealer Dealer { get; set; }
-        public bool IsDeleted { get; set; }
+
+        public bool IsDeleted { get; set; } 
+
+        public ICollection<CarOrder> CarOrders { get; set; }
     }
 
     public class Dealer
@@ -21,100 +65,108 @@ namespace CarDealerApp
         public int Id { get; set; }
         public string Name { get; set; }
         public string Location { get; set; }
-        public List<Car> Cars { get; set; } = new();
+
+        public ICollection<Car> Cars { get; set; }
     }
 
     public class Customer
     {
         public int Id { get; set; }
+
+        [Required]
         public string Name { get; set; }
-        public List<Order> Orders { get; set; } = new();
+
+        public ICollection<CarOrder> CarOrders { get; set; }
     }
 
     public class Order
     {
         public int Id { get; set; }
+        public int CustomerId { get; set; }
+        public Customer Customer { get; set; }
+
         public int CarId { get; set; }
         public Car Car { get; set; }
+    }
+
+    public class CarOrder
+    {
+        public int CarId { get; set; }
+        public Car Car { get; set; }
+
         public int CustomerId { get; set; }
         public Customer Customer { get; set; }
     }
 
-    public class AppDbContext : DbContext
-    {
-        public DbSet<Car> Cars { get; set; }
-        public DbSet<Dealer> Dealers { get; set; }
-        public DbSet<Customer> Customers { get; set; }
-        public DbSet<Order> Orders { get; set; }
-
-        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        {
-            optionsBuilder.UseSqlServer("Server=COCO;Database=CarDealerDb;Trusted_Connection=True;")
-                          .LogTo(Console.WriteLine);
-        }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<Car>().HasIndex(c => new { c.Make, c.Model }).IsUnique();
-            modelBuilder.Entity<Car>().Property(c => c.Make).IsRequired().HasMaxLength(100);
-            modelBuilder.Entity<Car>().Property(c => c.Model).IsRequired().HasMaxLength(100);
-            modelBuilder.Entity<Car>().Property(c => c.Year).IsRequired().HasColumnType("int").HasDefaultValue(2000);
-        }
-    }
-
     class Program
     {
-        static void Main()
+        static void Main(string[] args)
         {
-            using var context = new AppDbContext();
-            context.Database.Migrate();
+            var optionsBuilder = new DbContextOptionsBuilder<CarDealershipContext>();
+            optionsBuilder.UseSqlServer("Server=COCO\\MSSQLSERVER01;Database=CarDealership;Trusted_Connection=True;");
 
-            using var transaction = context.Database.BeginTransaction();
-            try
+            using (var context = new CarDealershipContext(optionsBuilder.Options))
             {
-                var dealer = new Dealer { Name = "AutoWorld", Location = "New York" };
+                context.Database.EnsureCreated();
+
+                var dealer = new Dealer { Name = "BestCars", Location = "New York" };
                 context.Dealers.Add(dealer);
                 context.SaveChanges();
 
-                var car = new Car { Make = "Toyota", Model = "Corolla", Year = 2020, DealerId = dealer.Id };
-                context.Cars.Add(car);
+                var car1 = new Car { Make = "Toyota", Model = "Camry", Year = 2020, DealerId = dealer.Id };
+                var car2 = new Car { Make = "Honda", Model = "Civic", Year = 2021, DealerId = dealer.Id };
+                context.Cars.AddRange(car1, car2);
                 context.SaveChanges();
 
-                transaction.Commit();
-                Console.WriteLine("Transaction committed.");
-            }
-            catch (Exception ex)
-            {
-                transaction.Rollback();
-                Console.WriteLine($"Transaction failed: {ex.Message}");
-            }
-
-            var cars = context.Cars.Include(c => c.Dealer).ToList();
-            foreach (var car in cars)
-            {
-                Console.WriteLine($"{car.Make} {car.Model} ({car.Year}) - Dealer: {car.Dealer.Name}");
-            }
-
-            var specificCar = context.Cars.FirstOrDefault(c => c.Make == "Toyota");
-            if (specificCar != null)
-            {
-                context.Entry(specificCar).Reference(c => c.Dealer).Load();
-                Console.WriteLine($"Eager Loaded: {specificCar.Make} {specificCar.Model} from {specificCar.Dealer.Name}");
-            }
-
-            var sqlCars = context.Cars.FromSqlRaw("SELECT * FROM Cars WHERE Make = 'Toyota'").ToList();
-            Console.WriteLine("Cars from SQL query:");
-            foreach (var car in sqlCars)
-            {
-                Console.WriteLine($"{car.Make} {car.Model}");
-            }
-
-            var carToDelete = context.Cars.FirstOrDefault();
-            if (carToDelete != null)
-            {
-                carToDelete.IsDeleted = true;
+                var customer = new Customer { Name = "John Doe" };
+                context.Customers.Add(customer);
                 context.SaveChanges();
-                Console.WriteLine("Car marked as deleted.");
+
+                var order = new Order { CustomerId = customer.Id, CarId = car1.Id };
+                context.Orders.Add(order);
+                context.SaveChanges();
+
+
+                var cars = context.Cars.Include(c => c.Dealer).ToList();
+                Console.WriteLine("Cars and Dealers:");
+                foreach (var car in cars)
+                {
+                    Console.WriteLine($"Car: {car.Make} {car.Model} - Dealer: {car.Dealer.Name}");
+                }
+
+                var carToLoad = context.Cars.First();
+                context.Entry(carToLoad).Reference(c => c.Dealer).Load();
+                Console.WriteLine($"Loaded dealer for {carToLoad.Make} {carToLoad.Model}: {carToLoad.Dealer.Name}");
+
+
+                optionsBuilder.LogTo(Console.WriteLine);
+
+                var deletedCar = context.Cars.First();
+                deletedCar.IsDeleted = true;
+                context.SaveChanges();
+                Console.WriteLine($"Car marked as deleted: {deletedCar.Make} {deletedCar.Model}");
+
+                using (var transaction = context.Database.BeginTransaction())
+                {
+                    try
+                    {
+                        var newCar = new Car { Make = "Ford", Model = "Focus", Year = 2022, DealerId = dealer.Id };
+                        context.Cars.Add(newCar);
+                        context.SaveChanges();
+
+                        var newOrder = new Order { CustomerId = customer.Id, CarId = newCar.Id };
+                        context.Orders.Add(newOrder);
+                        context.SaveChanges();
+
+                        transaction.Commit();
+                        Console.WriteLine("Transaction completed successfully.");
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        Console.WriteLine($"Transaction rolled back: {ex.Message}");
+                    }
+                }
             }
         }
     }
