@@ -86,18 +86,83 @@ namespace AutoServiceApp {
             }
         }
 
+        private static void AddClient(AutoServiceContext db) {
+            Console.Write("First name: ");
+            var firstName = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(firstName)) {
+                Console.WriteLine("First name cannot be empty.");
+                return;
+            }
+
+            Console.Write("Last name: ");
+            var lastName = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(lastName)) {
+                Console.WriteLine("Last name cannot be empty.");
+                return;
+            }
+
+            Console.Write("Phone: ");
+            var phone = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(phone)) {
+                Console.WriteLine("Phone number cannot be empty.");
+                return;
+            }
+
+            var client = new Client { FirstName = firstName, LastName = lastName, Phone = phone };
+            db.Clients.Add(client);
+            db.SaveChanges();
+            Console.WriteLine("Client added.");
+        }
+
+        private static void AddCar(AutoServiceContext db) {
+            Console.Write("Client ID: ");
+            var clientId = int.TryParse(Console.ReadLine(), out var result) ? result : -1;
+            if (!db.Clients.Any(c => c.Id == clientId)) {
+                Console.WriteLine("Invalid client ID.");
+                return;
+            }
+
+            Console.Write("Make: ");
+            var make = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(make)) {
+                Console.WriteLine("Make cannot be empty.");
+                return;
+            }
+
+            Console.Write("Model: ");
+            var model = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(model)) {
+                Console.WriteLine("Model cannot be empty.");
+                return;
+            }
+
+            Console.Write("Year: ");
+            var year = int.TryParse(Console.ReadLine(), out var carYear) ? carYear : 0;
+            if (year <= 0) {
+                Console.WriteLine("Invalid year.");
+                return;
+            }
+
+            var car = new Car { ClientId = clientId, Make = make, Model = model, Year = year };
+            db.Cars.Add(car);
+            db.SaveChanges();
+            Console.WriteLine("Car added.");
+        }
+
         private static void AddService(AutoServiceContext db) {
             Console.Write("Service name: ");
             var name = Console.ReadLine()?.Trim();
-if (string.IsNullOrEmpty(name)) {
-    Console.WriteLine("Name cannot be empty.");
-    return;
-}
+            if (string.IsNullOrEmpty(name)) {
+                Console.WriteLine("Name cannot be empty.");
+                return;
+            }
+
             Console.Write("Price: ");
             if (!decimal.TryParse(Console.ReadLine(), out var price) || price < 0) {
-    Console.WriteLine("Invalid price.");
-    return;
-}
+                Console.WriteLine("Invalid price.");
+                return;
+            }
+
             var service = new Service { Name = name, Price = price };
             db.Services.Add(service);
             db.SaveChanges();
@@ -106,24 +171,27 @@ if (string.IsNullOrEmpty(name)) {
 
         private static void CreateOrder(AutoServiceContext db) {
             Console.Write("Client ID: ");
-var clientId = int.TryParse(Console.ReadLine(), out var result) ? result : -1;
-if (!db.Clients.Any(c => c.Id == clientId)) {
-    Console.WriteLine("Invalid client ID.");
-    return;
-}
+            var clientId = int.TryParse(Console.ReadLine(), out var clientIdResult) ? clientIdResult : -1;
+            if (!db.Clients.Any(c => c.Id == clientId)) {
+                Console.WriteLine("Invalid client ID.");
+                return;
+            }
+
             Console.Write("Car ID: ");
-var carId = int.TryParse(Console.ReadLine(), out var result) ? result : -1;
-if (!db.Cars.Any(c => c.Id == carId)) {
-    Console.WriteLine("Invalid car ID.");
-    return;
-}
+            var carId = int.TryParse(Console.ReadLine(), out var carIdResult) ? carIdResult : -1;
+            if (!db.Cars.Any(c => c.Id == carId)) {
+                Console.WriteLine("Invalid car ID.");
+                return;
+            }
+
             Console.Write("Status: ");
-var status = Console.ReadLine()?.Trim();
-if (string.IsNullOrEmpty(status)) {
-    Console.WriteLine("Status cannot be empty.");
-    return;
-}
-var order = new Order { ClientId = clientId, CarId = carId, Date = DateTime.Now, Status = status };
+            var status = Console.ReadLine()?.Trim();
+            if (string.IsNullOrEmpty(status)) {
+                Console.WriteLine("Status cannot be empty.");
+                return;
+            }
+
+            var order = new Order { ClientId = clientId, CarId = carId, Date = DateTime.Now, Status = status };
             db.Orders.Add(order);
             db.SaveChanges();
             Console.WriteLine($"Order created with status: {order.Status}.");
@@ -132,12 +200,11 @@ var order = new Order { ClientId = clientId, CarId = carId, Date = DateTime.Now,
         private static void ShowOrderHistory(AutoServiceContext db) {
             var orders = db.Orders.Include(o => o.Client).Include(o => o.Car).ToList();
             foreach (var order in orders) {
-    Console.WriteLine($"Order #{order.Id}, Client: {order.Client.FirstName} {order.Client.LastName}, Car: {order.Car.Make} {order.Car.Model}, Date: {order.Date}, Status: {order.Status}");
-    var orderedServices = db.OrderedServices.Include(os => os.Service).Where(os => os.OrderId == order.Id).ToList();
-    foreach (var os in orderedServices) {
-        Console.WriteLine($"  - Service: {os.Service.Name}, Quantity: {os.Quantity}, Total: {os.Total:C}");
-    }
-}
+                Console.WriteLine($"Order #{order.Id}, Client: {order.Client.FirstName} {order.Client.LastName}, Car: {order.Car.Make} {order.Car.Model}, Date: {order.Date}, Status: {order.Status}");
+                var orderedServices = db.OrderedServices.Include(os => os.Service).Where(os => os.OrderId == order.Id).ToList();
+                foreach (var os in orderedServices) {
+                    Console.WriteLine($"  - Service: {os.Service.Name}, Quantity: {os.Quantity}, Total: {os.Total:C}");
+                }
             }
         }
     }
